@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cognicost"
+version = "0.1.0"
+description = "What your Claude Code usage would cost at API prices. Local only."
+readme = "README.md"
+requires-python = ">=3.9"
+
+[project.scripts]
+cognicost = "cognicost.__main__:main"
+
+[tool.setuptools]
+packages = ["cognicost"]
+
+[tool.setuptools.package-data]
+cognicost = ["prices.json", "dashboard.html"]

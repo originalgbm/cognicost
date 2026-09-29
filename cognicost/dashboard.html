@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cognicost</title>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10); --series: #2a78d6; --warn: #8a5a00;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #ffffff; --ink2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10); --series: #3987e5; --warn: #fab219;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink); font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1040px; margin: 0 auto; padding: 24px 16px 48px; transition: opacity .15s; }
+main.loading { opacity: .6; }
+h1 { font-size: 20px; margin: 0; font-weight: 650; }
+.sub { color: var(--ink2); margin: 2px 0 20px; }
+.filters { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+.filters button { font: inherit; color: var(--ink2); background: transparent; border: 1px solid var(--border); border-radius: 8px;
+  padding: 6px 12px; cursor: pointer; min-height: 32px; }
+.filters button:hover { background: var(--grid); }
+.filters button[aria-pressed="true"] { color: var(--ink); font-weight: 650; border-color: var(--axis); }
+.filters button[aria-pressed="true"]::before { content: "\2713\00a0"; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; margin-bottom: 16px; min-width: 0; }
+.card h2 { font-size: 13px; font-weight: 600; margin: 0 0 12px; color: var(--ink2); }
+.hero { display: flex; gap: 32px; align-items: flex-end; flex-wrap: wrap; }
+.hero .big { font-size: 56px; line-height: 1; font-weight: 650; letter-spacing: -0.02em; }
+.hero .lbl { color: var(--ink2); margin-top: 6px; }
+.kpis { display: flex; gap: 28px; flex-wrap: wrap; }
+.kpi .v { font-size: 22px; font-weight: 600; }
+.kpi .l { color: var(--ink2); font-size: 12px; }
+.grid3 { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.grid3 .card { margin-bottom: 0; }
+svg { display: block; width: 100%; }
+svg text { fill: var(--muted); font: 11px system-ui, "Segoe UI", sans-serif; font-variant-numeric: tabular-nums; }
+svg .peak { fill: var(--ink2); }
+.bar { fill: var(--series); }
+.hit { fill: transparent; outline: none; }
+.hit:hover + .bar, .hit:focus + .bar { filter: brightness(1.18); }
+.row { display: grid; grid-template-columns: min(calc(var(--n, 10) * 1ch), 50%) 1fr; gap: 10px; align-items: center; padding: 5px 0; border-radius: 6px; outline: none; }
+.row:hover, .row:focus { background: var(--grid); }
+.row .name { color: var(--ink2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .track { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.row .fill { height: 10px; min-width: 2px; width: calc((100% - 4.5rem) * var(--p)); background: var(--series); border-radius: 0 4px 4px 0; flex: none; }
+.row .val { color: var(--ink); font-variant-numeric: tabular-nums; white-space: nowrap; }
+details { margin-top: 12px; }
+summary { color: var(--ink2); cursor: pointer; font-size: 12px; }
+table { border-collapse: collapse; width: 100%; margin-top: 8px; font-size: 12px; font-variant-numeric: tabular-nums; }
+th, td { text-align: right; padding: 3px 6px; border-bottom: 1px solid var(--grid); }
+th:first-child, td:first-child { text-align: left; }
+th { color: var(--ink2); font-weight: 600; }
+.note { color: var(--muted); font-size: 12px; margin-top: 8px; }
+.warn { color: var(--warn); margin-bottom: 16px; }
+#tip { position: fixed; pointer-events: none; z-index: 9; display: none; background: var(--surface); color: var(--ink);
+  border: 1px solid var(--axis); border-radius: 8px; padding: 6px 10px; font-size: 12px; box-shadow: 0 4px 16px rgba(0,0,0,.18); }
+#tip b { display: block; font-size: 14px; font-weight: 650; }
+#tip span { color: var(--ink2); }
+#empty { display: none; color: var(--ink2); margin: 24px 0; }
+</style>
+</head>
+<body>
+<main id="main">
+  <h1>Cognicost</h1>
+  <p class="sub">Claude Code usage at Anthropic API list prices. Dollar figures are notional: a subscription plan is not billed per token.</p>
+  <div class="filters" id="filters" role="group" aria-label="Time range">
+    <button data-days="7">Last 7 days</button><button data-days="30">Last 30 days</button>
+    <button data-days="90">Last 90 days</button><button data-days="0">All time</button>
+  </div>
+  <div class="warn" id="warn" hidden></div>
+  <div class="note" id="exports" hidden style="margin: -8px 0 16px"></div>
+  <div class="card">
+    <div class="hero">
+      <div><div class="big" id="hero">$0.00</div><div class="lbl" id="herolbl">API-equivalent cost</div></div>
+      <div class="kpis" id="kpis"></div>
+    </div>
+  </div>
+  <div id="empty">No Claude Code usage found for this period.</div>
+  <div class="card"><h2>Cost per day</h2><div id="daily"></div>
+    <details><summary>Table view</summary><div id="daily-t"></div></details></div>
+  <div class="grid3">
+    <div class="card" id="usercard" hidden><h2>By person</h2><div id="user"></div>
+      <details><summary>Table view</summary><div id="user-t"></div></details></div>
+    <div class="card"><h2>By category</h2><div id="category"></div>
+      <div class="note">Each turn gets one label from the tools used. It is a heuristic; see the README.</div>
+      <details><summary>Table view</summary><div id="category-t"></div></details></div>
+    <div class="card"><h2>By project</h2><div id="project"></div>
+      <details><summary>Table view</summary><div id="project-t"></div></details></div>
+    <div class="card"><h2>By model</h2><div id="model"></div>
+      <details><summary>Table view</summary><div id="model-t"></div></details></div>
+  </div>
+</main>
+<div id="tip" role="tooltip"></div>
+<script>
+const $ = id => document.getElementById(id);
+const money = n => "$" + n.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+const compact = n => new Intl.NumberFormat("en", {notation: "compact", maximumFractionDigits: 1}).format(n);
+const dayLabel = k => new Date(k + "T00:00:00").toLocaleDateString(undefined, {month: "short", day: "numeric"});
+const NS = "http://www.w3.org/2000/svg";
+let data = null, days = 30;
+
+// Tooltips: values lead, labels follow. Everything goes in via textContent (project names are untrusted).
+const tip = $("tip");
+function showTip(at, title, value, sub) {
+  tip.textContent = "";
+  const b = document.createElement("b"); b.textContent = value;
+  const s = document.createElement("span"); s.textContent = title + (sub ? " - " + sub : "");
+  tip.append(b, s);
+  tip.style.display = "block";
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  tip.style.left = Math.max(8, Math.min(at.x + 14, innerWidth - w - 8)) + "px";
+  tip.style.top = Math.max(8, Math.min(at.y - h - 10, innerHeight - h - 8)) + "px";
+}
+const hideTip = () => { tip.style.display = "none"; };
+function wire(el, title, value, sub) {
+  el.addEventListener("pointermove", e => showTip({x: e.clientX, y: e.clientY}, title, value, sub));
+  el.addEventListener("pointerleave", hideTip);
+  el.addEventListener("focus", () => { const r = el.getBoundingClientRect(); showTip({x: r.left + r.width / 2, y: r.top}, title, value, sub); });
+  el.addEventListener("blur", hideTip);
+}
+
+function ticks(max) {
+  if (max <= 0) return [0, 1];
+  const p = Math.pow(10, Math.floor(Math.log10(max / 4)));
+  const step = [1, 2, 5, 10].map(m => m * p).find(s => max / s <= 5);
+  const t = [];
+  for (let v = 0; ; v += step) { t.push(Math.round(v * 1e6) / 1e6); if (v >= max) break; }
+  return t;
+}
+function svgEl(tag, attrs, parent) {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+}
+
+function drawDaily(rows) {
+  const host = $("daily"); host.textContent = "";
+  const W = Math.max(host.clientWidth, 280), H = 260, m = {l: 56, r: 8, t: 22, b: 26};
+  const pw = W - m.l - m.r, ph = H - m.t - m.b, n = rows.length;
+  const max = Math.max(0, ...rows.map(r => r.cost)), tk = ticks(max), top = tk[tk.length - 1];
+  const y = v => m.t + ph - (v / top) * ph;
+  const svg = svgEl("svg", {viewBox: `0 0 ${W} ${H}`, height: H, role: "img", "aria-label": "Cost per day"}, host);
+  for (const v of tk) {
+    svgEl("line", {x1: m.l, x2: W - m.r, y1: y(v), y2: y(v), stroke: v === 0 ? "var(--axis)" : "var(--grid)", "stroke-width": 1}, svg);
+    const t = svgEl("text", {x: m.l - 8, y: y(v) + 4, "text-anchor": "end"}, svg); t.textContent = "$" + v.toLocaleString();
+  }
+  const band = pw / n, bw = Math.min(24, Math.max(band - 2, 1)), step = Math.ceil(n / Math.max(1, Math.floor(pw / 70)));
+  let peak = -1;
+  rows.forEach((r, i) => { if (r.cost > 0 && (peak < 0 || r.cost > rows[peak].cost)) peak = i; });
+  rows.forEach((r, i) => {
+    const cx = m.l + band * i + band / 2, x = cx - bw / 2, h = ph - (y(r.cost) - m.t);
+    const hit = svgEl("rect", {x: m.l + band * i, y: m.t, width: band, height: ph, class: "hit"}, svg);  // whole column is the target
+    if (n <= 45) { hit.setAttribute("tabindex", "0"); hit.setAttribute("role", "img"); hit.setAttribute("aria-label", `${dayLabel(r.key)}: ${money(r.cost)}`); }
+    if (h > 0) {
+      const rad = Math.min(4, h), base = m.t + ph;  // 4px rounded data-end, square at the baseline
+      svgEl("path", {class: "bar", "pointer-events": "none",
+        d: `M${x},${base} V${m.t + ph - h + rad} a${rad},${rad} 0 0 1 ${rad},${-rad} H${x + bw - rad} a${rad},${rad} 0 0 1 ${rad},${rad} V${base} Z`}, svg);
+    } else svgEl("path", {class: "bar", d: "M0,0", "pointer-events": "none"}, svg);  // keeps the hit+bar sibling pairing
+    wire(hit, dayLabel(r.key), money(r.cost), `${r.msgs} messages`);
+    if (i % step === 0) {
+      const t = svgEl("text", {x: cx, y: H - 6, "text-anchor": "middle"}, svg); t.textContent = dayLabel(r.key);
+    }
+  });
+  if (peak >= 0) {  // label only the extreme; axis + tooltip carry the rest
+    const px = Math.min(Math.max(m.l + band * peak + band / 2, m.l + 24), W - m.r - 24);
+    const t = svgEl("text", {x: px, y: y(rows[peak].cost) - 6, "text-anchor": "middle", class: "peak"}, svg);
+    t.textContent = money(rows[peak].cost);
+  }
+}
+
+function drawBars(id, rows) {
+  const host = $(id); host.textContent = "";
+  const max = Math.max(0, ...rows.map(r => r.cost)) || 1;
+  host.style.setProperty("--n", Math.max(...rows.map(r => r.key.length), 4) + 1);  // name column fits the longest name, up to 50%
+  for (const r of rows) {
+    const row = document.createElement("div"); row.className = "row"; row.tabIndex = 0;
+    const name = document.createElement("span"); name.className = "name"; name.textContent = r.key; name.title = r.key;
+    const track = document.createElement("div"); track.className = "track";
+    const fill = document.createElement("div"); fill.className = "fill"; fill.style.setProperty("--p", r.cost / max);
+    const val = document.createElement("span"); val.className = "val"; val.textContent = money(r.cost);
+    track.append(fill, val); row.append(name, track); host.appendChild(row);
+    wire(row, r.key, money(r.cost), `${r.msgs} messages, ${compact(r.out)} output tokens`);
+  }
+}
+
+function drawTable(id, rows) {
+  const host = $(id); host.textContent = "";
+  const t = document.createElement("table");
+  const add = (cells, tag) => { const tr = t.insertRow(); cells.forEach(c => { const e = document.createElement(tag); e.textContent = c; tr.appendChild(e); }); };
+  add(["", "Messages", "Output tokens", "Cost"], "th");
+  for (const r of rows) add([r.key, r.msgs.toLocaleString(), compact(r.out), money(r.cost)], "td");
+  host.appendChild(t);
+}
+
+function render() {
+  const d = data;
+  $("hero").textContent = money(d.cost);
+  const team = d.exports.length > 0;
+  $("herolbl").textContent = (team ? "Team API-equivalent cost, " : "API-equivalent cost, ") + (d.days ? `last ${d.days} days` : "all time");
+  const ex = $("exports"); ex.hidden = !team;
+  if (team) {  // stale exports silently understate a roll-up, so say how old the oldest one is
+    const oldest = d.exports.reduce((a, b) => (a.at <= b.at ? a : b));
+    ex.textContent = `${d.exports.length} people. Oldest export: ${oldest.user}, ${oldest.at || "unknown date"}.`;
+  }
+  $("usercard").hidden = !team;
+  if (team) { drawBars("user", d.user); drawTable("user-t", d.user); }
+  const active = d.daily.filter(r => r.msgs > 0).length;
+  const kpis = [["Messages", d.msgs.toLocaleString()], ["Output tokens", compact(d.output)],
+                ["Active days", String(active)], ["Avg per active day", money(active ? d.cost / active : 0)]];
+  $("kpis").textContent = "";
+  for (const [l, v] of kpis) {
+    const k = document.createElement("div"); k.className = "kpi";
+    const a = document.createElement("div"); a.className = "v"; a.textContent = v;
+    const b = document.createElement("div"); b.className = "l"; b.textContent = l;
+    k.append(a, b); $("kpis").appendChild(k);
+  }
+  $("empty").style.display = d.msgs ? "none" : "block";
+  const w = $("warn"); w.hidden = !d.unpriced.length;
+  w.textContent = d.unpriced.length ? `No price for: ${d.unpriced.join(", ")} (counted as $0). Run cognicost --update-prices.` : "";
+  drawDaily(d.daily); drawTable("daily-t", d.daily.filter(r => r.msgs > 0));
+  for (const id of ["category", "project", "model"]) { drawBars(id, d[id]); drawTable(id + "-t", d[id]); }
+}
+
+async function load() {
+  $("main").classList.add("loading");  // keep the previous render, dimmed, while refetching
+  for (const b of document.querySelectorAll("#filters button")) b.setAttribute("aria-pressed", String(+b.dataset.days === days));
+  try {
+    const r = await fetch("/api/data?days=" + days);
+    if (!r.ok) throw new Error("HTTP " + r.status);
+    data = await r.json();
+    render();
+  } catch (e) {
+    $("warn").hidden = false; $("warn").textContent = "Could not load data: " + e.message;
+  }
+  $("main").classList.remove("loading");
+}
+$("filters").addEventListener("click", e => { if (e.target.dataset.days !== undefined) { days = +e.target.dataset.days; load(); } });
+let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(() => data && drawDaily(data.daily), 120); });
+load();
+</script>
+</body>
+</html>
