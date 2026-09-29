@@ -1,4 +1,4 @@
-"""Cognicost: what your Claude Code usage would cost at API prices. Local only, stdlib only."""
+"""Cognicost: what your Claude Code usage would cost at API prices. Runs locally, stdlib only; sharing is opt-in."""
 import argparse, getpass, json, os, posixpath, re, subprocess, sys, urllib.request
 from collections import defaultdict
 from datetime import date, datetime, timedelta
