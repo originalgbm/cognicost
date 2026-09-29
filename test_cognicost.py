@@ -101,8 +101,26 @@ def test_wsl():
     assert sorted((r["project"], r["out"]) for r in recs) == [("api", 300), ("proj", 500)], recs
 
 
+def test_cowork():
+    o = json.loads(line("c1", 200)); o["cwd"] = "/sessions/fervent-adoring-ritchie"  # Cowork's cwd is a VM path
+    o["message"]["content"] = [{"type": "tool_use", "name": "Bash", "input": {"command": "ls"}}]  # would be Shell in Claude Code
+    blank = json.loads(line("c2", 100)); del blank["cwd"]  # some Cowork records have no cwd at all
+    with tempfile.TemporaryDirectory() as t:
+        cw = Path(t) / "local-agent-mode-sessions" / "acct" / "org"
+        (cw / "local_1" / ".claude" / "projects" / "x").mkdir(parents=True)
+        (cw / "local_1" / ".claude" / "projects" / "x" / "s.jsonl").write_text("\n".join([json.dumps(o), json.dumps(blank)]))
+        (cw / "agent" / "local_1").mkdir(parents=True)
+        (cw / "agent" / "local_1" / "audit.jsonl").write_text(json.dumps(o))  # same message echoed in an audit log
+        (Path(t) / "code").mkdir()
+        (Path(t) / "code" / "a.jsonl").write_text(line("k1", 500))  # ordinary Claude Code message alongside
+        recs = load([Path(t) / "code", Path(t) / "local-agent-mode-sessions"])
+    got = sorted((r["project"], r["cat"], r["out"]) for r in recs)
+    assert got == [("Cowork", "Cowork", 100), ("Cowork", "Cowork", 200), ("proj", "Chat", 500)], got  # audit echo counted once
+
+
 if __name__ == "__main__":
     test()
+    test_cowork()
     test_wsl()
     test_categories()
     test_dashboard()

@@ -31,6 +31,10 @@ Without pipx: `pip install git+https://github.com/originalgbm/cognicost`, or clo
 
 **Team roll-up** (opt-in, nothing is shared unless you run the export yourself):
 
+> **Before you export:** the file includes your name and your **project names**, and everyone who can read the shared
+> folder can see it. Check what would be shared with `cognicost --by project --days 0`; if a project name shouldn't be
+> visible to your team, don't export.
+
     cognicost --export \\server\share\cognicost           # each person; any shared or synced folder works
     cognicost --export <folder> --name "Folder Name"      # name shown in the roll-up (default: Windows username)
     cognicost --team <folder>                             # anyone with folder access: combined table
@@ -57,6 +61,12 @@ Research (web) > Shell > Exploration (read-only) > Other tools > Chat. Rules liv
 `\\wsl.localhost\<distro>\home\<user>\.claude` and adds them to your totals (it says which paths it used). Two things
 to know: looking there starts a stopped distro, so pass `--no-wsl` to skip it, and Docker Desktop's internal distros
 are ignored. Use `--root <path>` to point at one specific logs folder instead.
+
+**Cowork:** sessions from the Claude desktop app's Cowork are read automatically from
+`%APPDATA%\Claude\local-agent-mode-sessions` and appear under the project **Cowork** and the category **Cowork**
+(Cowork's working folders and connector tools don't fit the coding categories, so they get their own label). Cowork
+deletes old session data, so its older usage can be missing from the totals. This was checked against one machine's
+Cowork data only.
 
 **The dollar figure is an estimate:** tokens x Anthropic API list price. On a usage-based Enterprise plan tokens are
 billed at API rates, so it approximates your organization's bill, but it leaves out seat fees and taxes and won't match

@@ -10,8 +10,17 @@ PRICES_URL = "https://raw.githubusercontent.com/BerriAI/litellm/main/model_price
 # prices.json: model -> USD per million tokens [input, output, cache_read, cache_write_5m, cache_write_1h]
 
 
+COWORK_DIR = "local-agent-mode-sessions"
+
+
 def claude_root():
     return Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude") / "projects"
+
+
+def cowork_root():
+    """Where the Claude desktop app keeps Cowork sessions (same jsonl format as Claude Code). None if not on Windows."""
+    appdata = os.environ.get("APPDATA")
+    return Path(appdata) / "Claude" / COWORK_DIR if appdata else None
 
 
 def parse_distros(raw):
@@ -113,8 +122,9 @@ def prompt_text(o, c):
     return None
 
 
-def finish_turn(turn, recs):
-    cat = classify(turn["prompt"].lower()[:2000], turn["tools"], turn["cmds"].lower())
+def finish_turn(turn, recs, cowork=False):
+    # Cowork's tools (MCP connectors etc.) don't fit the coding categories, so it gets its own label
+    cat = "Cowork" if cowork else classify(turn["prompt"].lower()[:2000], turn["tools"], turn["cmds"].lower())
     for k in turn["keys"]:
         if k in recs:
             recs[k]["cat"] = cat
@@ -130,6 +140,7 @@ def load(root):
     recs = {}
     roots = [root] if isinstance(root, (str, Path)) else root
     for path in (p for r in roots for p in Path(r).rglob("*.jsonl")):
+        cowork = COWORK_DIR in path.parts
         turn = new_turn()
         with open(path, encoding="utf-8", errors="replace") as f:
             for line in f:
@@ -146,7 +157,7 @@ def load(root):
                 if o.get("type") == "user":
                     p = prompt_text(o, c)
                     if p is not None:
-                        finish_turn(turn, recs)
+                        finish_turn(turn, recs, cowork)
                         turn = new_turn(p)
                     continue
                 if o.get("type") != "assistant":
@@ -173,10 +184,10 @@ def load(root):
                     continue
                 cwd = (o.get("cwd") or path.parent.name).replace("\\", "/")
                 recs[key] = dict(model=model, day=day, out=out, session=o.get("sessionId", "?"),
-                                 project=posixpath.basename(cwd.rstrip("/")) or cwd,
+                                 project="Cowork" if cowork else posixpath.basename(cwd.rstrip("/")) or cwd,  # Cowork's cwd is a VM path or blank
                                  **{"in": u.get("input_tokens") or 0, "cr": u.get("cache_read_input_tokens") or 0,
                                     "cw5": max(cw_total - cw1, 0), "cw1": cw1})
-        finish_turn(turn, recs)
+        finish_turn(turn, recs, cowork)
     return list(recs.values())
 
 
@@ -366,7 +377,7 @@ def main(argv=None):
             wsl = [] if a.no_wsl else wsl_roots(wsl_distros())
             for r in wsl:
                 print(f"Including WSL logs: {r}", file=sys.stderr)
-            roots = [r for r in [claude_root()] if r.is_dir()] + wsl
+            roots = [r for r in [claude_root(), cowork_root()] if r and r.is_dir()] + wsl
         if not roots:
             raise SystemExit(f"No Claude Code data found at {claude_root()} (or in WSL)")
         source = lambda: (load(roots), [])
