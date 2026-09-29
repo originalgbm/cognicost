@@ -3,6 +3,10 @@
 Shows what your Claude Code usage would cost at Anthropic API list prices. Reads the session logs Claude Code already
 writes to `~/.claude/projects` (or `$CLAUDE_CONFIG_DIR`). Nothing leaves your machine. Python 3.9+, no dependencies.
 
+![The Cognicost dashboard showing a team's Claude Code cost per day and by person, category, project and model](docs/dashboard.png)
+
+*The `--web` dashboard in team mode. Sample data for a made-up four-person team, not real usage.*
+
 ## Install
 
 Needs Python 3.9 or newer on Windows. Recommended, so it gets its own isolated environment and a `cognicost` command:
