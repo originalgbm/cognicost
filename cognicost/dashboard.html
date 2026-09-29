@@ -235,7 +235,7 @@ async function load() {
   try {
     const r = await fetch("/api/data?days=" + days);
     if (!r.ok) throw new Error("HTTP " + r.status);
-    data = await r.json();
+    data = Object.assign({exports: [], user: []}, await r.json());  // an older server may not send the team fields
     render();
   } catch (e) {
     $("warn").hidden = false; $("warn").textContent = "Could not load data: " + e.message;
