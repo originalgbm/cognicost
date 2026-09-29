@@ -118,14 +118,16 @@ def test_cowork():
     assert got == [("Cowork", "Cowork", 100), ("Cowork", "Cowork", 200), ("proj", "Chat", 500)], got  # audit echo counted once
 
 
-def test_skill_prices_in_sync():
+def test_skill_copies_in_sync():
     here = Path(__file__).parent
-    assert (here / "cognicost" / "prices.json").read_bytes() == (here / "skill" / "cognicost" / "prices.json").read_bytes(), \
-        "skill/cognicost/prices.json is a copy of cognicost/prices.json: recopy it after --update-prices"
+    for name in ("prices.json", "dashboard.html"):
+        assert (here / "cognicost" / name).read_bytes() == (here / "skill" / "cognicost" / name).read_bytes(), \
+            f"skill/cognicost/{name} is a copy of cognicost/{name}: recopy it after changing the original"
+    assert "<!--COGNICOST_DATA-->" in (here / "cognicost" / "dashboard.html").read_text(encoding="utf-8")  # the skill injects data here
 
 
 if __name__ == "__main__":
-    test_skill_prices_in_sync()
+    test_skill_copies_in_sync()
     test()
     test_cowork()
     test_wsl()

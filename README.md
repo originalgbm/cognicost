@@ -23,14 +23,16 @@ Without pipx: `pip install git+https://github.com/originalgbm/cognicost`, or clo
 
 A lighter version for people who would rather not install Python: a [Claude Code skill](https://code.claude.com/docs/en/skills)
 that runs a PowerShell script (Windows PowerShell 5.1 is enough, and it ships with Windows). You ask Claude Code
-"how much have I spent this week?" (or type `/cognicost`) and it prints the table and summarises it.
+to show your usage: type `/cognicost` and the same dashboard as `--web` opens in your browser (as a snapshot file, so
+no server is involved and it makes no network calls). For a pointed question ("which project cost the most this week?")
+Claude prints a table instead.
 
     git clone https://github.com/originalgbm/cognicost
     Copy-Item -Recurse cognicost\skill\cognicost $env:USERPROFILE\.claude\skills\
 
-It reports Claude Code **and Cowork** usage by day, project, model, category or session, with the same numbers as the
-Python tool (checked against it on real logs, under both PowerShell 5.1 and 7; a by-session token cell can differ by 0.1k
-from display rounding). It leaves out the dashboard, the team roll-up and WSL logs. Things to know:
+It reports Claude Code **and Cowork** usage, with the same numbers as the Python tool (the dashboard data was compared
+field by field against it on real logs, under both PowerShell 5.1 and 7; in the printed by-session table a token cell can
+differ by 0.1k from display rounding). It leaves out the team roll-up and WSL logs. Things to know:
 
 - It runs from **Claude Code**. Cowork doesn't read `~/.claude/skills`, but the skill still reports Cowork's usage
   because it reads Cowork's session files from disk.

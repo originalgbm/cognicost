@@ -4,12 +4,15 @@ Windows PowerShell 5.1 or newer, no dependencies. Reads local session logs only;
   -Days N     look back N days (default 30, 0 = all time)
   -By         day | project | model | category | session
   -Root PATH  read only this logs folder instead of the defaults
+  -Web        build the browser dashboard (a snapshot page) and open it; -NoOpen writes it without opening
 Keep this compatible with Windows PowerShell 5.1: no ternary, ??, &&, or -AsHashtable.
 #>
 param(
     [int]$Days = 30,
     [ValidateSet('day', 'project', 'model', 'category', 'session')][string]$By = 'day',
-    [string]$Root
+    [string]$Root,
+    [switch]$Web,     # build the browser dashboard and open it instead of printing a table
+    [switch]$NoOpen   # with -Web: write the page but don't launch a browser
 )
 $ErrorActionPreference = 'Stop'
 $inv = [Globalization.CultureInfo]::InvariantCulture
@@ -157,25 +160,98 @@ foreach ($file in (Get-ChildItem -LiteralPath $roots -Recurse -Filter '*.jsonl' 
     Complete-Turn $turn $cowork
 }
 
-# Filter, group, price
-$since = (Get-Date).Date.AddDays(-($Days - 1))
-$agg = @{}; $unpriced = @{}
-foreach ($r in $recs.Values) {
-    if ($Days -gt 0 -and $r.day -lt $since) { continue }
-    switch ($By) {
-        'day'      { $k = $r.day.ToString('yyyy-MM-dd', $inv) }
-        'project'  { $k = $r.project }
-        'model'    { $k = $r.model }
-        'category' { $k = $r.cat }
-        'session'  { $k = $r.session.Substring(0, [math]::Min(8, $r.session.Length)) + ' ' + $r.project }
+# Filter, group, price -> @{ Agg = key -> [msgs, in, out, cache_read, cache_write, cost]; Unpriced = models with no price }
+function Get-Groups([string]$by, [int]$days) {
+    $since = (Get-Date).Date.AddDays(-($days - 1))
+    $agg = @{}; $unpriced = @{}
+    foreach ($r in $recs.Values) {
+        if ($days -gt 0 -and $r.day -lt $since) { continue }
+        switch ($by) {
+            'day'      { $k = $r.day.ToString('yyyy-MM-dd', $inv) }
+            'project'  { $k = $r.project }
+            'model'    { $k = $r.model }
+            'category' { $k = $r.cat }
+            'session'  { $k = $r.session.Substring(0, [math]::Min(8, $r.session.Length)) + ' ' + $r.project }
+        }
+        $p = Get-Price $r.model
+        if ($p) { $c = ($r.in * $p[0] + $r.out * $p[1] + $r.cr * $p[2] + $r.cw5 * $p[3] + $r.cw1 * $p[4]) / 1e6 }
+        else { $c = 0; $unpriced[$r.model] = $true }
+        if (-not $agg.ContainsKey($k)) { $agg[$k] = New-Object 'double[]' 6 }
+        $a = $agg[$k]
+        $a[0] += 1; $a[1] += $r.in; $a[2] += $r.out; $a[3] += $r.cr; $a[4] += $r.cw5 + $r.cw1; $a[5] += $c
     }
-    $p = Get-Price $r.model
-    if ($p) { $c = ($r.in * $p[0] + $r.out * $p[1] + $r.cr * $p[2] + $r.cw5 * $p[3] + $r.cw1 * $p[4]) / 1e6 }
-    else { $c = 0; $unpriced[$r.model] = $true }
-    if (-not $agg.ContainsKey($k)) { $agg[$k] = New-Object 'double[]' 6 }
-    $a = $agg[$k]
-    $a[0] += 1; $a[1] += $r.in; $a[2] += $r.out; $a[3] += $r.cr; $a[4] += $r.cw5 + $r.cw1; $a[5] += $c
+    return @{ Agg = $agg; Unpriced = $unpriced }
 }
+
+# Dashboard data for one period, the same shape the Python tool's /api/data returns
+function Get-DashRows([int]$days, [string]$by, [int]$top) {
+    $g = Get-Groups $by $days
+    $sorted = $g.Agg.GetEnumerator() | Sort-Object @{ Expression = { $_.Value[5] }; Descending = $true }, @{ Expression = { $_.Name } }
+    $rows = @($sorted | ForEach-Object { [pscustomobject]@{ key = $_.Name; msgs = [long]$_.Value[0]; out = [long]$_.Value[2]; cost = $_.Value[5] } })
+    if ($rows.Count -gt $top) {  # fold the tail into Other rather than draw a long list
+        $rest = @($rows[$top..($rows.Count - 1)])
+        $m = 0; $o = 0; $c = 0.0
+        foreach ($x in $rest) { $m += $x.msgs; $o += $x.out; $c += $x.cost }
+        $rows = @($rows[0..($top - 1)]) + @([pscustomobject]@{ key = "Other ($($rest.Count))"; msgs = $m; out = $o; cost = $c })
+    }
+    return , $rows
+}
+function Get-DashData([int]$days) {
+    $g = Get-Groups 'day' $days
+    $t = New-Object 'double[]' 6
+    foreach ($v in $g.Agg.Values) { for ($i = 0; $i -lt 6; $i++) { $t[$i] += $v[$i] } }
+    $end = (Get-Date).Date
+    if ($days -gt 0) { $start = $end.AddDays(-($days - 1)) }
+    else {
+        $first = $g.Agg.Keys | Sort-Object | Select-Object -First 1
+        if ($first) { $start = [datetime]::ParseExact($first, 'yyyy-MM-dd', $inv) } else { $start = $end }
+    }
+    $daily = New-Object System.Collections.Generic.List[object]
+    for ($d = $start; $d -le $end; $d = $d.AddDays(1)) {  # fill idle days so gaps show as gaps
+        $k = $d.ToString('yyyy-MM-dd', $inv)
+        if ($g.Agg.ContainsKey($k)) { $v = $g.Agg[$k]; $daily.Add([pscustomobject]@{ key = $k; msgs = [long]$v[0]; out = [long]$v[2]; cost = $v[5] }) }
+        else { $daily.Add([pscustomobject]@{ key = $k; msgs = 0; out = 0; cost = 0.0 }) }
+    }
+    $dailyArr = $daily.ToArray()
+    $catRows = Get-DashRows $days 'category' 12
+    $projRows = Get-DashRows $days 'project' 8
+    $modelRows = Get-DashRows $days 'model' 8
+    $unp = @($g.Unpriced.Keys | Sort-Object)
+    $stamp = (Get-Date).ToString('yyyy-MM-dd HH:mm', $inv)
+    $res = [ordered]@{}
+    $res['days'] = $days; $res['msgs'] = [long]$t[0]; $res['input'] = [long]$t[1]; $res['output'] = [long]$t[2]
+    $res['cache_read'] = [long]$t[3]; $res['cache_write'] = [long]$t[4]; $res['cost'] = $t[5]
+    $res['daily'] = $dailyArr; $res['category'] = $catRows; $res['project'] = $projRows; $res['model'] = $modelRows
+    $res['unpriced'] = $unp; $res['user'] = @(); $res['exports'] = @(); $res['generated'] = $stamp
+    return $res
+}
+
+if ($Web) {
+    # One self-contained page with the data for every time range embedded, so no server is needed and the buttons work offline.
+    $all = [ordered]@{}
+    foreach ($d in 7, 30, 90, 0) { $all["$d"] = Get-DashData $d }
+    $json = ($all | ConvertTo-Json -Depth 8 -Compress).Replace('<', '<')  # names come from the logs: keep them from closing the script tag
+    $tpl = Get-Content -Raw -Encoding UTF8 -LiteralPath (Join-Path $PSScriptRoot '..\dashboard.html')
+    $html = $tpl.Replace('<!--COGNICOST_DATA-->', "<script>window.COGNICOST_DATA = $json;</script>")
+    $dir = Join-Path ([IO.Path]::GetTempPath()) 'cognicost'
+    [void](New-Item -ItemType Directory -Force -Path $dir)
+    $page = Join-Path $dir 'dashboard.html'
+    [IO.File]::WriteAllText($page, $html, (New-Object Text.UTF8Encoding($false)))
+    $m = $all['30']
+    Write-Output "Cognicost dashboard written to $page"
+    Write-Output ("Last 30 days: `$" + [string]::Format($inv, '{0:N2}', $m.cost) + " across " + $m.msgs + " messages (estimate at API list prices; your invoice may differ).")
+    $peak = $m.daily | Sort-Object cost -Descending | Select-Object -First 1
+    if ($peak -and $peak.cost -gt 0) { Write-Output ("Biggest day: " + $peak.key + " at `$" + [string]::Format($inv, '{0:N2}', $peak.cost) + ".") }
+    if ($NoOpen) { Write-Output 'Not opened (-NoOpen).' }
+    else {
+        try { Start-Process $page; Write-Output 'Opened in your default browser.' }
+        catch { Write-Output "Could not open a browser automatically; open the file above yourself." }
+    }
+    return
+}
+
+$g = Get-Groups $By $Days
+$agg = $g.Agg; $unpriced = $g.Unpriced
 if ($agg.Count -eq 0) { Write-Output 'No usage in that period.'; return }
 
 function Format-Tok([double]$n) {
