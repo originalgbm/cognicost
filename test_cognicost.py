@@ -118,7 +118,14 @@ def test_cowork():
     assert got == [("Cowork", "Cowork", 100), ("Cowork", "Cowork", 200), ("proj", "Chat", 500)], got  # audit echo counted once
 
 
+def test_skill_prices_in_sync():
+    here = Path(__file__).parent
+    assert (here / "cognicost" / "prices.json").read_bytes() == (here / "skill" / "cognicost" / "prices.json").read_bytes(), \
+        "skill/cognicost/prices.json is a copy of cognicost/prices.json: recopy it after --update-prices"
+
+
 if __name__ == "__main__":
+    test_skill_prices_in_sync()
     test()
     test_cowork()
     test_wsl()

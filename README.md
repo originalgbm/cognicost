@@ -19,6 +19,28 @@ Without pipx: `pip install git+https://github.com/originalgbm/cognicost`, or clo
 `python -m cognicost` from it with no install at all.
 `--update-prices` rewrites the prices file inside the installed copy, so an upgrade resets it to the bundled prices.
 
+## Claude Code skill (no Python needed)
+
+A lighter version for people who would rather not install Python: a [Claude Code skill](https://code.claude.com/docs/en/skills)
+that runs a PowerShell script (Windows PowerShell 5.1 is enough, and it ships with Windows). You ask Claude Code
+"how much have I spent this week?" (or type `/cognicost`) and it prints the table and summarises it.
+
+    git clone https://github.com/originalgbm/cognicost
+    Copy-Item -Recurse cognicost\skill\cognicost $env:USERPROFILE\.claude\skills\
+
+It reports Claude Code **and Cowork** usage by day, project, model, category or session, with the same numbers as the
+Python tool (checked against it on real logs, under both PowerShell 5.1 and 7; a by-session token cell can differ by 0.1k
+from display rounding). It leaves out the dashboard, the team roll-up and WSL logs. Things to know:
+
+- It runs from **Claude Code**. Cowork doesn't read `~/.claude/skills`, but the skill still reports Cowork's usage
+  because it reads Cowork's session files from disk.
+- Prices are bundled in the skill's `prices.json`. To refresh them, run `cognicost --update-prices` from the Python
+  tool and copy `cognicost/prices.json` over `skill/cognicost/prices.json`.
+- If your organization's PowerShell policy blocks running scripts, it won't run. That has not been tested on a
+  managed machine.
+- An administrator can deploy it to everyone through Claude Code's managed settings directory instead of each person
+  copying it (see the skills docs; not tested here).
+
 ## Use
 
     cognicost                        # last 30 days, by day
