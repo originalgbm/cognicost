@@ -53,5 +53,7 @@ Research (web) > Shell > Exploration (read-only) > Other tools > Chat. Rules liv
 to know: looking there starts a stopped distro, so pass `--no-wsl` to skip it, and Docker Desktop's internal distros
 are ignored. Use `--root <path>` to point at one specific logs folder instead.
 
-**The dollar figure is notional.** It is tokens x API list price. If you're on a Claude subscription (Pro/Max/Team)
-you are not billed per token; this tells you how much usage you got, not what you owe.
+**The dollar figure is an estimate:** tokens x Anthropic API list price. On a usage-based Enterprise plan tokens are
+billed at API rates, so it approximates your organization's bill, but it leaves out seat fees and taxes and won't match
+a contract with negotiated rates. (On a Pro/Max subscription you aren't billed per token at all, so there it only
+shows how much usage you got.)

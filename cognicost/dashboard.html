@@ -69,7 +69,7 @@ th { color: var(--ink2); font-weight: 600; }
 <body>
 <main id="main">
   <h1>Cognicost</h1>
-  <p class="sub">Claude Code usage at Anthropic API list prices. Dollar figures are notional: a subscription plan is not billed per token.</p>
+  <p class="sub">Claude Code usage estimated at Anthropic API list prices. Your invoice may differ (seat fees, taxes, negotiated rates).</p>
   <div class="filters" id="filters" role="group" aria-label="Time range">
     <button data-days="7">Last 7 days</button><button data-days="30">Last 30 days</button>
     <button data-days="90">Last 90 days</button><button data-days="0">All time</button>
@@ -88,9 +88,7 @@ th { color: var(--ink2); font-weight: 600; }
   <div class="grid3">
     <div class="card" id="usercard" hidden><h2>By person</h2><div id="user"></div>
       <details><summary>Table view</summary><div id="user-t"></div></details></div>
-    <div class="card"><h2>By category</h2><div id="category"></div>
-      <div class="note">Each turn gets one label from the tools used. It is a heuristic; see the README.</div>
-      <details><summary>Table view</summary><div id="category-t"></div></details></div>
+    <div class="card"><h2>By category</h2><div id="category"></div>      <details><summary>Table view</summary><div id="category-t"></div></details></div>
     <div class="card"><h2>By project</h2><div id="project"></div>
       <details><summary>Table view</summary><div id="project-t"></div></details></div>
     <div class="card"><h2>By model</h2><div id="model"></div>

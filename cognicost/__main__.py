@@ -383,7 +383,7 @@ def main(argv=None):
         raise SystemExit("No usage in that period.")
     scope = f"last {a.days} days" if a.days else "all time"
     who = f"team of {len(exports)}" if a.team else "you"
-    print(f"Cognicost - Claude Code, {who}, {scope}. Cost = tokens x API list price; subscription plans are not billed this way.")
+    print(f"Cognicost - Claude Code, {who}, {scope}. Cost = tokens x API list price; your invoice may differ (seat fees, taxes, negotiated rates).")
     if exports:
         oldest = min(exports, key=lambda e: e[1])
         print(f"Oldest export: {oldest[0]} on {oldest[1] or 'unknown date'}")
