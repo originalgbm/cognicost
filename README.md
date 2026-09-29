@@ -8,10 +8,11 @@ writes to `~/.claude/projects` (or `$CLAUDE_CONFIG_DIR`). Nothing leaves your ma
 Needs Python 3.9 or newer on Windows. Recommended, so it gets its own isolated environment and a `cognicost` command:
 
     pip install pipx && pipx ensurepath        # once; then open a new terminal
-    pipx install <path to this folder, or a git URL>
+    pipx install git+https://github.com/originalgbm/cognicost
     pipx upgrade cognicost                     # later, to pick up a new version
 
-Without pipx: `pip install .` from this folder, or just `python -m cognicost` from it with no install at all.
+Without pipx: `pip install git+https://github.com/originalgbm/cognicost`, or clone the repo and run
+`python -m cognicost` from it with no install at all.
 `--update-prices` rewrites the prices file inside the installed copy, so an upgrade resets it to the bundled prices.
 
 ## Use
