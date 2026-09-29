@@ -31,11 +31,11 @@ Without pipx: `pip install git+https://github.com/originalgbm/cognicost`, or clo
 
 **Team roll-up** (opt-in, nothing is shared unless you run the export yourself):
 
-    cognicost --export \\server\share\cognicost    # each person; any shared or synced folder works
-    cognicost --export <folder> --name "Doug"      # name shown in the roll-up (default: Windows username)
-    cognicost --team <folder>                      # anyone with folder access: combined table
-    cognicost --team <folder> --by user            # per person
-    cognicost --team <folder> --web                # dashboard with a "By person" card
+    cognicost --export \\server\share\cognicost           # each person; any shared or synced folder works
+    cognicost --export <folder> --name "Folder Name"      # name shown in the roll-up (default: Windows username)
+    cognicost --team <folder>                             # anyone with folder access: combined table
+    cognicost --team <folder> --by user                   # per person
+    cognicost --team <folder> --web                       # dashboard with a "By person" card
 
 `--export` writes one plain JSON file per person and re-running it overwrites that file, so run it whenever you want
 to refresh your numbers. It covers your whole history (the viewer picks the date range). Open it first if you want to
